@@ -2,9 +2,10 @@
 	import { db } from '../firebase';
 	import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 	import { onMount } from 'svelte';
-	import type { YouTubeLink } from '../types';
+	import YouTubeLink from './YouTubeLink.svelte';
+	import type { YouTubeLink as LinkType } from '../types';
 
-	let links: YouTubeLink[] = [];
+	let links: LinkType[] = [];
 
 	onMount(() => {
 		const q = query(collection(db, 'youtubeLinks'), orderBy('createdAt', 'desc'));
@@ -12,7 +13,7 @@
 			links = snapshot.docs.map((doc) => ({
 				id: doc.id,
 				...doc.data()
-			})) as YouTubeLink[];
+			})) as LinkType[];
 		});
 		return () => unsubscribe();
 	});
@@ -20,10 +21,6 @@
 
 <ul class="space-y-4 p-4">
 	{#each links as link}
-		<li class="rounded border p-4">
-			<h3 class="text-lg font-semibold">{link.title}</h3>
-			<a href={link.url} target="_blank" class="text-blue-500 underline">Watch on YouTube</a>
-			<p class="text-sm text-gray-600">Posted by {link.username}</p>
-		</li>
+		<YouTubeLink {link} />
 	{/each}
 </ul>
