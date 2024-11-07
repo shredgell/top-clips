@@ -85,7 +85,7 @@
 </script>
 
 <!-- Sorting Control UI -->
-<div class="flex justify-end p-4">
+<div class="flex items-center justify-end p-4">
 	<label for="sort" class="mr-2 font-semibold">Sort By:</label>
 	<select id="sort" bind:value={sortOption} class="select select-bordered">
 		<option value="mostRecent">Most Recent</option>

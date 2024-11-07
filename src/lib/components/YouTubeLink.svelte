@@ -134,7 +134,14 @@
 			<a href={link.url} target="_blank" class="text-primary hover:underline">Watch on YouTube</a>
 		</div>
 		<!-- Like Button -->
-		<button on:click={toggleLike} class="btn btn-sm btn-neutral">
+		<button
+			on:click={toggleLike}
+			class={`btn btn-sm ${
+				likedByUser ? 'btn-error' : 'btn-neutral'
+			} ${!currentUser ? 'btn-disabled cursor-not-allowed' : ''}`}
+			disabled={!currentUser}
+			title={!currentUser ? 'Please log in to like' : 'Like this link'}
+		>
 			{likedByUser ? '❤️' : '🤍'}
 			{link.likeCount || 0}
 		</button>
