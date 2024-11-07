@@ -1,5 +1,6 @@
+// src/lib/stores/auth.ts
 import { writable } from 'svelte/store';
-import { auth, provider } from '../firebase';
+import { auth, provider } from '$lib/utils/firebase';
 import {
 	signInWithPopup,
 	signOut,

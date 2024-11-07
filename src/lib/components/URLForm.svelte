@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { db } from '../firebase';
+	import { db } from '$lib/utils/firebase';
 	import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-	import { user } from '../stores/auth';
+	import { user } from '$lib/stores/auth';
 	import { get } from 'svelte/store';
 
 	let url = '';
@@ -41,17 +41,17 @@
 		bind:value={title}
 		placeholder="Title"
 		required
-		class="w-full rounded border p-2"
+		class="input input-bordered w-full"
 	/>
 	<input
 		type="url"
 		bind:value={url}
 		placeholder="YouTube URL"
 		required
-		class="w-full rounded border p-2"
+		class="input input-bordered w-full"
 	/>
-	<button type="submit" class="rounded bg-green-500 px-4 py-2 text-white">Submit</button>
+	<button type="submit" class="btn btn-success">Submit</button>
 	{#if error}
-		<p class="text-red-500">{error}</p>
+		<p class="text-error">{error}</p>
 	{/if}
 </form>

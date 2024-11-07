@@ -1,92 +1,104 @@
 <script lang="ts">
-	import { db } from '../firebase';
-	import {
-		doc,
-		getDoc,
-		setDoc,
-		deleteDoc,
-		updateDoc,
-		increment,
-		runTransaction
-	} from 'firebase/firestore';
-	import { user } from '../stores/auth';
-	import { get } from 'svelte/store';
-	import type { YouTubeLink } from '../types';
-	import { writable } from 'svelte/store';
+	import { db } from '$lib/utils/firebase';
+	import { onSnapshot, doc, deleteDoc, updateDoc } from 'firebase/firestore';
+	import type { DocumentData, DocumentSnapshot } from 'firebase/firestore';
+	import { user } from '$lib/stores/auth';
+	import { toggleLike as toggleLikeUtil } from '$lib/utils/likeUtils';
+	import type { YouTubeLink } from '$lib/types';
+	import { onDestroy } from 'svelte';
 
 	export let link: YouTubeLink;
 
-	const currentUser = get(user);
-	let isEditing = writable(false);
+	// Reactive subscription to user store using Svelte's $ syntax
+	$: currentUser = $user;
+
+	let isEditing = false;
 	let editTitle = link.title;
 	let editUrl = link.url;
-	let likeCount = link.likeCount || 0;
 	let likedByUser = false;
 
-	// Fetch the initial like status
-	const checkUserLikeStatus = async () => {
-		if (currentUser && link.id) {
-			const likeDocRef = doc(db, 'youtubeLinks', link.id, 'likes', currentUser.uid);
-			const docSnapshot = await getDoc(likeDocRef);
-			likedByUser = docSnapshot.exists();
+	// Explicit type annotation for unsubscribeLikeStatus
+	let unsubscribeLikeStatus: (() => void) | null = null;
+
+	// Set up a real-time listener for the user's like status
+	$: if (currentUser && link.id) {
+		// If there's an existing subscription, unsubscribe before creating a new one
+		if (unsubscribeLikeStatus) {
+			unsubscribeLikeStatus();
 		}
-	};
 
-	checkUserLikeStatus();
+		// Reference to the specific like document
+		const likeDocRef = doc(db, 'youtubeLinks', link.id, 'likes', currentUser.uid);
 
-	// Toggle like status with optimistic UI
+		// Subscribe to changes in the like document
+		unsubscribeLikeStatus = onSnapshot(
+			likeDocRef,
+			(docSnapshot: DocumentSnapshot<DocumentData>) => {
+				likedByUser = docSnapshot.exists();
+			}
+		);
+	} else {
+		// If there's no current user or link ID, reset like status and unsubscribe if necessary
+		likedByUser = false;
+		if (unsubscribeLikeStatus) {
+			unsubscribeLikeStatus();
+			unsubscribeLikeStatus = null;
+		}
+	}
+
+	// Clean up the listener when the component is destroyed
+	onDestroy(() => {
+		if (unsubscribeLikeStatus) {
+			unsubscribeLikeStatus();
+			console.log(`Unsubscribed from likes for Link ID: ${link.id}`);
+		}
+	});
+
+	// Toggle like status without optimistic UI updates
 	const toggleLike = async () => {
 		if (!link.id || !currentUser) return;
 
-		// Optimistic UI updates
-		const originalLikeCount = likeCount;
-		const originalLikedByUser = likedByUser;
-
-		likedByUser = !likedByUser;
-		likeCount = likedByUser ? likeCount + 1 : likeCount - 1;
-
 		try {
-			const likeDocRef = doc(db, 'youtubeLinks', link.id, 'likes', currentUser.uid);
-			await runTransaction(db, async (transaction) => {
-				const linkRef = doc(db, 'youtubeLinks', link.id);
-				if (likedByUser) {
-					// Like the post
-					transaction.set(likeDocRef, { userId: currentUser.uid });
-					transaction.update(linkRef, { likeCount: increment(1) });
-				} else {
-					// Unlike the post
-					transaction.delete(likeDocRef);
-					transaction.update(linkRef, { likeCount: increment(-1) });
-				}
-			});
+			await toggleLikeUtil(link, currentUser, likedByUser);
+			console.log(`Successfully toggled like for Link ID: ${link.id}`);
 		} catch (error) {
 			console.error('Error updating like:', error);
-			likedByUser = originalLikedByUser;
-			likeCount = originalLikeCount;
 		}
 	};
 
-	// Delete the post if current user is the author
+	// Delete the post if the current user is the author
 	const handleDelete = async () => {
 		if (currentUser && currentUser.uid === link.userId) {
-			await deleteDoc(doc(db, 'youtubeLinks', link.id));
+			try {
+				await deleteDoc(doc(db, 'youtubeLinks', link.id));
+				console.log(`Deleted Link ID: ${link.id}`);
+			} catch (error) {
+				console.error('Error deleting document:', error);
+				alert('Failed to delete the post.');
+			}
 		}
 	};
 
-	// Update post title and URL if current user is the author
+	// Update post title and URL if the current user is the author
 	const handleEdit = async () => {
 		if (currentUser && currentUser.uid === link.userId && editUrl && editTitle) {
-			await updateDoc(doc(db, 'youtubeLinks', link.id), {
-				title: editTitle,
-				url: editUrl
-			});
-			isEditing.set(false);
+			try {
+				await updateDoc(doc(db, 'youtubeLinks', link.id), {
+					title: editTitle,
+					url: editUrl
+				});
+				isEditing = false;
+				console.log(`Updated Link ID: ${link.id}`);
+			} catch (error) {
+				console.error('Error updating document:', error);
+				alert('Failed to update the post.');
+			}
 		}
 	};
 </script>
 
 <!-- Component Template -->
-<div class="rounded bg-white p-4 shadow">
+<div class="space-y-2 rounded p-4">
 	<div class="flex items-center">
 		<img src={link.photoURL} alt="User Avatar" class="mr-3 h-10 w-10 rounded-full" />
 		<div>
@@ -97,45 +109,39 @@
 		</div>
 	</div>
 
-	{#if $isEditing}
+	{#if isEditing}
 		<!-- Edit Form -->
-		<div class="mt-2">
+		<div class="space-y-2">
 			<input
 				type="text"
 				bind:value={editTitle}
-				class="w-full rounded border p-2"
+				class="input input-bordered w-full"
 				placeholder="Edit title"
 			/>
 			<input
 				type="url"
 				bind:value={editUrl}
-				class="mt-2 w-full rounded border p-2"
+				class="input input-bordered w-full"
 				placeholder="Edit URL"
 			/>
-			<button on:click={handleEdit} class="mt-2 rounded bg-green-500 px-4 py-2 text-white"
-				>Save</button
-			>
-			<button
-				on:click={() => isEditing.set(false)}
-				class="mt-2 rounded bg-gray-500 px-4 py-2 text-white">Cancel</button
-			>
+			<button on:click={handleEdit} class="btn btn-success">Save</button>
+			<button on:click={() => (isEditing = false)} class="btn btn-neutral">Cancel</button>
 		</div>
 	{:else}
 		<!-- Display Title and URL -->
-		<div class="mt-2">
+		<div>
 			<h3 class="text-lg font-semibold">{link.title}</h3>
-			<a href={link.url} target="_blank" class="text-blue-500 underline">Watch on YouTube</a>
+			<a href={link.url} target="_blank" class="text-primary hover:underline">Watch on YouTube</a>
 		</div>
 		<!-- Like Button -->
-		<button on:click={toggleLike} class="mt-2 rounded bg-blue-500 px-2 py-1 text-sm text-white">
-			{likedByUser ? '👍 Unlike' : '👍 Like'}
-			{likeCount}
+		<button on:click={toggleLike} class="btn btn-sm btn-neutral">
+			{likedByUser ? '❤️' : '🤍'}
+			{link.likeCount || 0}
 		</button>
-	{/if}
-
-	<!-- Show Edit and Delete Buttons only to the author -->
-	{#if currentUser && currentUser.uid === link.userId}
-		<button on:click={() => isEditing.set(true)} class="mt-2 text-sm text-yellow-500">Edit</button>
-		<button on:click={handleDelete} class="mt-2 text-sm text-red-500">Delete</button>
+		<!-- Show Edit and Delete Buttons only to the author -->
+		{#if currentUser && currentUser.uid === link.userId}
+			<button on:click={() => (isEditing = true)} class="btn btn-sm btn-warning">Edit</button>
+			<button on:click={handleDelete} class="btn btn-sm btn-error">Delete</button>
+		{/if}
 	{/if}
 </div>
