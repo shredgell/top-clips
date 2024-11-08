@@ -1,4 +1,4 @@
-// src/lib/stores/auth.ts
+// src/lib/auth/authStore.ts
 import { writable } from 'svelte/store';
 import { auth, provider } from '$lib/utils/firebase';
 import {

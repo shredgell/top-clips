@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { db } from '$lib/utils/firebase';
 	import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-	import { user } from '$lib/stores/auth';
+	import { user } from '$lib/auth/authStore';
 	import { get } from 'svelte/store';
+	import { extractYouTubeVideoID, fetchYouTubeVideoTitle } from '$lib/utils/youtubeUtils';
 
 	let url = '';
 	let title = '';
@@ -15,6 +16,14 @@
 			return;
 		}
 
+		const videoID = extractYouTubeVideoID(url);
+		if (!videoID) {
+			error = 'Invalid YouTube URL.';
+			return;
+		}
+
+		title = (await fetchYouTubeVideoTitle(videoID)) ?? 'Untitled Video';
+
 		try {
 			await addDoc(collection(db, 'youtubeLinks'), {
 				url,
@@ -25,8 +34,8 @@
 				createdAt: serverTimestamp()
 			});
 
-			url = ''; // Reset input fields after submission
-			title = '';
+			// Reset input fields after submission
+			url = '';
 			error = '';
 		} catch (e) {
 			console.error('Error adding document: ', e);
@@ -36,14 +45,6 @@
 </script>
 
 <form on:submit|preventDefault={handleSubmit} class="space-y-2">
-	<input
-		maxlength="30"
-		type="text"
-		bind:value={title}
-		placeholder="Title"
-		required
-		class="input input-bordered w-full"
-	/>
 	<input
 		type="url"
 		bind:value={url}

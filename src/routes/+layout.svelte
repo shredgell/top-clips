@@ -1,7 +1,7 @@
 <!-- src/routes/+layout.svelte -->
 <script lang="ts">
 	import '../app.css';
-	import Navbar from '$lib/components/Navbar.svelte';
+	import Navbar from '$lib/components/navbar/Navbar.svelte';
 </script>
 
 <div class="flex min-h-screen flex-col items-center p-4">

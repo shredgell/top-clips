@@ -1,51 +1,50 @@
 <script lang="ts">
 	import { db } from '$lib/utils/firebase';
 	import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
-	import YouTubeLink from '$lib/components/YouTubeLink.svelte';
+	import YouTubeLink from '$lib/components/youtubelink/YouTubeLink.svelte';
 	import type { YouTubeLink as YouTubeLinkType } from '$lib/types';
 
-	// Type-only imports
-	import type { Query, QuerySnapshot, DocumentData } from 'firebase/firestore';
+	import { onDestroy, onMount } from 'svelte';
 
-	import { onDestroy, onMount } from 'svelte'; // Correct import from 'svelte'
-
-	// Define sorting options
-	type SortOption = 'mostRecent' | 'mostPopular';
+	// Define sort options
+	type SortOption = 'mostRecent' | 'mostPopular' | 'oldestFirst';
 
 	let links: YouTubeLinkType[] = [];
-
-	// Default sorting option
 	let sortOption: SortOption = 'mostRecent';
 
+	// Unsubscribe function to clear Firestore listener
 	let unsubscribe: () => void;
 
-	// Function to create Firestore query based on sort option
-	const createQuery = (option: SortOption): Query<DocumentData, DocumentData> => {
+	// Create Firestore query based on selected sort option
+	const createQuery = (option: SortOption) => {
+		const collectionRef = collection(db, 'youtubeLinks');
 		switch (option) {
 			case 'mostRecent':
-				return query(collection(db, 'youtubeLinks'), orderBy('createdAt', 'desc'));
+				return query(collectionRef, orderBy('createdAt', 'desc'));
 			case 'mostPopular':
-				return query(collection(db, 'youtubeLinks'), orderBy('likeCount', 'desc'));
+				return query(collectionRef, orderBy('likeCount', 'desc'), orderBy('createdAt', 'desc'));
+			case 'oldestFirst':
+				return query(collectionRef, orderBy('createdAt', 'asc'));
 			default:
-				// Fallback to mostRecent to ensure the function always returns a Query
-				return query(collection(db, 'youtubeLinks'), orderBy('createdAt', 'desc'));
+				return query(collectionRef, orderBy('createdAt', 'desc'));
 		}
 	};
 
-	// Function to subscribe to Firestore based on sort option
+	// Function to subscribe to Firestore collection based on sort option
 	const subscribeToLinks = (option: SortOption) => {
-		// If there's an existing subscription, unsubscribe before creating a new one
+		// Unsubscribe from previous listener if it exists
 		if (unsubscribe) {
 			unsubscribe();
 		}
 
+		// Set up Firestore query and listener
 		const q = createQuery(option);
 		unsubscribe = onSnapshot(
 			q,
-			(snapshot: QuerySnapshot<DocumentData>) => {
+			(snapshot) => {
+				// Update links array with new data
 				links = snapshot.docs.map((doc) => {
 					const data = doc.data();
-					console.log(`Fetched Link ID: ${doc.id}, likeCount: ${data.likeCount}`);
 					return {
 						id: doc.id,
 						title: data.title,
@@ -60,26 +59,24 @@
 			},
 			(error) => {
 				console.error('Error fetching YouTube links:', error);
-				// Optionally, set an error state to inform the user
 			}
 		);
 	};
 
-	// Initialize subscription on component mount
+	// Initialize listener on component mount
 	onMount(() => {
 		subscribeToLinks(sortOption);
 	});
 
-	// Reactive block to handle sorting option changes
+	// Reactive block to handle changes in the sort option
 	$: if (sortOption) {
 		subscribeToLinks(sortOption);
 	}
 
-	// Clean up the listener on component destroy
+	// Clean up the Firestore listener when component is destroyed
 	onDestroy(() => {
 		if (unsubscribe) {
 			unsubscribe();
-			console.log('Unsubscribed from Firestore links');
 		}
 	});
 </script>
@@ -90,11 +87,11 @@
 	<select id="sort" bind:value={sortOption} class="select select-bordered">
 		<option value="mostRecent">Most Recent</option>
 		<option value="mostPopular">Most Popular</option>
+		<option value="oldestFirst">Oldest First</option>
 	</select>
 </div>
 
 <!-- List of YouTube Links -->
-
 {#each links as link}
 	<YouTubeLink {link} />
 {/each}

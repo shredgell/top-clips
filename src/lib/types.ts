@@ -5,8 +5,9 @@ import type { User } from 'firebase/auth';
 
 export interface YouTubeLink {
 	id: string;
-	title: string;
+
 	url: string;
+	title: string;
 	createdAt: Timestamp | null;
 	userId: string;
 	username: string;
