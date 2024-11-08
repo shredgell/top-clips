@@ -85,7 +85,7 @@
 </script>
 
 <!-- Sorting Control UI -->
-<div class="flex items-center justify-end p-4">
+<div class="flex items-center justify-end">
 	<label for="sort" class="mr-2 font-semibold">Sort By:</label>
 	<select id="sort" bind:value={sortOption} class="select select-bordered">
 		<option value="mostRecent">Most Recent</option>
@@ -94,10 +94,7 @@
 </div>
 
 <!-- List of YouTube Links -->
-<ul class="space-y-4 p-4">
-	{#each links as link}
-		<li class="card bg-base-200 p-4">
-			<YouTubeLink {link} />
-		</li>
-	{/each}
-</ul>
+
+{#each links as link}
+	<YouTubeLink {link} />
+{/each}

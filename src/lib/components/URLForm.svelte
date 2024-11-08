@@ -35,8 +35,9 @@
 	};
 </script>
 
-<form on:submit|preventDefault={handleSubmit} class="space-y-2 p-4">
+<form on:submit|preventDefault={handleSubmit} class="space-y-2">
 	<input
+		maxlength="30"
 		type="text"
 		bind:value={title}
 		placeholder="Title"
